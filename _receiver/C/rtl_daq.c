@@ -45,6 +45,11 @@ gcc -std=c99 rtl_rec.h rtl_daq.c -lpthread -lrtlsdr -o rtl_daq
 #include <time.h>
 #include <stdbool.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <signal.h>
+
 #include "rtl-sdr.h"
 // TODO: Remove unnecessary includes
 #include "rtl_rec.h"
@@ -57,6 +62,7 @@ gcc -std=c99 rtl_rec.h rtl_daq.c -lpthread -lrtlsdr -o rtl_daq
 #define GAIN 5
 
 #define CFN "_receiver/C/rec_control_fifo" /* Receiver control FIFO name */
+#define OFN "_receiver/C/rec1_rawoutput_fifo"
 #define NOTUSED(V) ((void) V)
 #define ASYNC_BUF_NUMBER     30
 
@@ -246,6 +252,18 @@ return NULL;
 
 int main( int argc, char** argv )
 {
+    /* 
+       Do some pipe handling to have an optional pipe for listening in to the 
+       raw RTL-SDR data ... See https://stackoverflow.com/questions/7360473/linux-non-blocking-fifo-on-demand-logging
+    */
+  
+    signal(SIGPIPE, SIG_IGN);
+
+    int rtl1_rawout = open(OFN, O_WRONLY | O_NONBLOCK);
+    if(rtl1_rawout != 0)
+        fprintf(stderr,"Raw output pipe opened\n");
+    else
+        fprintf(stderr,"Raw output pipe open error\n");
     static char buf[262144 * 4 * 30];
 
     setvbuf(stdout, buf, _IOFBF, sizeof(buf));
@@ -377,7 +395,15 @@ int main( int argc, char** argv )
           {
               rtl_rec = &rtl_receivers[i];
               fwrite(rtl_rec->buffer, BUFF_LEN, 1, stdout);
+              // write the output of the first receiver only to the pipe
+              if(i == 0 && rtl1_rawout != 0) {
+                  
+                  int bytes = write(rtl1_rawout, rtl_rec->buffer, BUFF_LEN); 
+                  if(-1==bytes) { 
+                      // do nothing 
+                  }; //Ignoring the errors
               //fflush(stdout);
+              }
           }
           writeOrder[0] = false;
           writeOrder[1] = false;

@@ -30,6 +30,8 @@ from scipy import fft,ifft
 from scipy import signal
 from scipy.signal import correlate
 
+import signal_decoder
+
 # Plot support
 #import matplotlib.pyplot as plt
 
@@ -58,6 +60,7 @@ from pyapril import detector as det
 from pyapril.hitProcessor import CA_CFAR
 
 class SignalProcessor(QtCore.QThread):
+    ch1_outpipe = "/home/adrian/kerberossdr/hydra_channel1"
 
     signal_spectrum_ready = QtCore.pyqtSignal()
     signal_sync_ready = QtCore.pyqtSignal()
@@ -79,11 +82,13 @@ class SignalProcessor(QtCore.QThread):
         """
         super(SignalProcessor, self).__init__(parent)
 
+        self.processingpipe = os.open(self.ch1_outpipe, os.O_WRONLY | os.O_NONBLOCK)
+
         self.module_receiver = module_receiver
         self.en_spectrum = True
         self.en_sync = True
         self.en_sample_offset_sync = False
-        self.en_record = False
+        self.en_record = True
         self.en_calib_iq = False
         self.en_calib_DOA_90 = False
         self.en_DOA_estimation = False
@@ -158,9 +163,9 @@ class SignalProcessor(QtCore.QThread):
 
             # Download samples
             #if(self.en_sync or self.en_spectrum):
-            time.sleep(0.25) # You can play with this value, but it may affect stability
+            time.sleep(0.1) # You can play with this value, but it may affect stability
 
-            self.module_receiver.download_iq_samples()
+            self.module_receiver.download_iq_samples() # we have the raw data now in self.module_receiver.iq_samples available
 
             self.DOA_sample_size = self.module_receiver.iq_samples[0,:].size
             self.xcorr_sample_size = self.module_receiver.iq_samples[0,:].size
@@ -171,7 +176,7 @@ class SignalProcessor(QtCore.QThread):
                 self.signal_overdrive.emit(1)
             else:
                 self.signal_overdrive.emit(0)
-            
+
             # Display spectrum
             if self.en_spectrum:
                 self.spectrum[0, :] = np.fft.fftshift(np.fft.fftfreq(self.spectrum_sample_size, 1/self.fs))/10**6
@@ -223,6 +228,8 @@ class SignalProcessor(QtCore.QThread):
                 self.spectrum[1,:] = 10*np.log10(np.fft.fftshift(np.abs(np.fft.fft(self.module_receiver.iq_samples[0, 0:self.spectrum_sample_size]))))
 
                 self.estimate_DOA()
+                #signal_decoder(self.module_receiver.center_freq, self.module_receiver.sample_rate. self.module_receiver.iq_samples)
+
                 self.signal_DOA_ready.emit()
             
             # Passive Radar processing
@@ -236,7 +243,14 @@ class SignalProcessor(QtCore.QThread):
 
             # Record IQ samples
             if self.en_record:
-                np.save('hydra_samples.npy', self.module_receiver.iq_samples)
+                import socket
+
+                def chunks(lst, n):
+                    """Yield successive n-sized chunks from lst."""
+                    for i in range(0, len(lst), n):
+                        yield lst[i:i + n]
+                os.write(self.processingpipe, self.module_receiver.iq_samples_nopreproc[0].tobytes())
+                #np.save('hydra_channel1.npy', self.module_receiver.iq_samples[0].tobytes())
 
 
 # Code to maintain sync
