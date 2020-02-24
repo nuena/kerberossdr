@@ -165,7 +165,7 @@ class SignalProcessor(QtCore.QThread):
             #if(self.en_sync or self.en_spectrum):
             time.sleep(0.1) # You can play with this value, but it may affect stability
 
-            self.module_receiver.download_iq_samples() # we have the raw data now in self.module_receiver.iq_samples available
+            self.module_receiver.download_iq_samples()
 
             self.DOA_sample_size = self.module_receiver.iq_samples[0,:].size
             self.xcorr_sample_size = self.module_receiver.iq_samples[0,:].size
@@ -176,7 +176,7 @@ class SignalProcessor(QtCore.QThread):
                 self.signal_overdrive.emit(1)
             else:
                 self.signal_overdrive.emit(0)
-
+            
             # Display spectrum
             if self.en_spectrum:
                 self.spectrum[0, :] = np.fft.fftshift(np.fft.fftfreq(self.spectrum_sample_size, 1/self.fs))/10**6
