@@ -23,6 +23,7 @@ import sys
 import time
 from struct import pack, unpack
 from scipy import signal
+import zmq
 
 class ReceiverRTLSDR():
     """
@@ -96,9 +97,16 @@ class ReceiverRTLSDR():
             self.fir_size = 0
             self.fir_bw = 1  # Normalized to sampling frequency 
             self.fir_filter_coeffs = np.empty(0)
-            self.decimation_ratio = 1               
-            
-            
+            self.decimation_ratio = 1
+
+            # UDP data dump:
+            self.zmqcont = zmq.Context()
+
+            self.socket = self.zmqcont.socket(zmq.PUB)
+            self.socket.bind("tcp://*:9876")
+
+
+
     def set_sample_offsets(self, sample_offsets):
         #print("[ INFO ] Python rec: Setting sample offset")
         delays = [0] + (sample_offsets.tolist())
@@ -191,6 +199,8 @@ class ReceiverRTLSDR():
             
             #np.save("hydra_raw.npy",self.iq_samples)
             self.iq_preprocessing()
+            self.socket.send(self.iq_samples.tobytes())
+            #np.save("hydra_preprocessed.npy", self.iq_samples)
             #print("[ DONE] IQ sample read ready")
             
             
@@ -227,6 +237,7 @@ class ReceiverRTLSDR():
         time.sleep(1)
         self.gc_fifo_descriptor.close()
         self.sync_fifo_descriptor.close()
+        self.udpsock.close()
         print("[ INFO ] Python rec: FIFOs are closed")
 
         
