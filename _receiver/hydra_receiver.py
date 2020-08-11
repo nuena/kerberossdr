@@ -189,9 +189,8 @@ class ReceiverRTLSDR():
                       #print("[ WARNING ] Overdrive at ch: %d"%m)                
                       #print("imag max: ",np.max(self.iq_samples[m, :].real))
                       #print("imag min: ",np.min(self.iq_samples[m, :].real))
+            self.socket.send(self.iq_samples.tobytes())
 
-
-            
             self.iq_samples /= (255 / 2)
             self.iq_samples -= (1 + 1j) 
             
@@ -237,7 +236,8 @@ class ReceiverRTLSDR():
         time.sleep(1)
         self.gc_fifo_descriptor.close()
         self.sync_fifo_descriptor.close()
-        self.udpsock.close()
+        self.socket.close()
+        self.zmqcont.destroy()
         print("[ INFO ] Python rec: FIFOs are closed")
 
         
