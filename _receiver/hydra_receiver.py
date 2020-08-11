@@ -81,8 +81,11 @@ class ReceiverRTLSDR():
             self.receiver_gain = 0 # Gain in dB x 10 
             self.receiver_gain_2 = 0 # Gain in dB x 10 
             self.receiver_gain_3 = 0 # Gain in dB x 10 
-            self.receiver_gain_4 = 0 # Gain in dB x 10 
-            
+            self.receiver_gain_4 = 0 # Gain in dB x 10
+
+            self.sample_rate = 0
+            self.center_frequency = 0
+
             # Data acquisition parameters
             self.channel_number = 4
             self.block_size = 0; #128 * 1024 #256*1024
@@ -109,6 +112,15 @@ class ReceiverRTLSDR():
        #print("[ INFO ] Python rec: Setting receiver center frequency to:",center_freq)
        #print("[ INFO ] Python rec: Setting receiver sample rate to:",sample_rate)
        #print("[ INFO ] Python rec: Setting receiver gain to:",gain)
+
+       # save configuration if we need it later, for example for decoding:
+       self.center_frequency = int(center_freq)
+       self.sample_rate = int(sample_rate)
+       self.receiver_gain = int(gain[0])
+       self.receiver_gain_2 = int(gain[1])
+       self.receiver_gain_3 = int(gain[2])
+       self.receiver_gain_4 = int(gain[3])
+
        self.rec_control_fifo_descriptor.write(self.reconfig_tuner_byte)    
        self.rec_control_fifo_descriptor.write(pack("I", int(center_freq)))
        self.rec_control_fifo_descriptor.write(pack("I", int(sample_rate)))
@@ -185,9 +197,9 @@ class ReceiverRTLSDR():
 
             
             self.iq_samples /= (255 / 2)
-            self.iq_samples -= (1 + 1j) 
+            self.iq_samples -= (1 + 1j)
             
-                      
+            self.iq_samples_nopreproc = self.iq_samples
             
             #np.save("hydra_raw.npy",self.iq_samples)
             self.iq_preprocessing()
