@@ -68,7 +68,7 @@ class Ui_MainWindow(object):
         self.doubleSpinBox_center_freq.setDecimals(4)
         self.doubleSpinBox_center_freq.setMinimum(25.0)
         self.doubleSpinBox_center_freq.setMaximum(2000.0)
-        self.doubleSpinBox_center_freq.setProperty("value", 100.0)
+        self.doubleSpinBox_center_freq.setProperty("value", 162.0)
         self.doubleSpinBox_center_freq.setObjectName(_fromUtf8("doubleSpinBox_center_freq"))
         self.gridLayout_16.addWidget(self.doubleSpinBox_center_freq, 0, 1, 1, 1)
         self.label_4 = QtGui.QLabel(self.groupBox_7)

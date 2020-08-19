@@ -79,10 +79,10 @@ class ReceiverRTLSDR():
             self.sync_fifo_descriptor = open(self.sync_fifo_name, 'w+b', buffering=0)
             self.rec_control_fifo_descriptor = open(self.rec_control_fifo_name, 'w+b', buffering=0)
             
-            self.receiver_gain = 0 # Gain in dB x 10 
-            self.receiver_gain_2 = 0 # Gain in dB x 10 
-            self.receiver_gain_3 = 0 # Gain in dB x 10 
-            self.receiver_gain_4 = 0 # Gain in dB x 10 
+            self.receiver_gain = 402 # Gain in dB x 10
+            self.receiver_gain_2 = 402 # Gain in dB x 10
+            self.receiver_gain_3 = 402 # Gain in dB x 10
+            self.receiver_gain_4 = 402 # Gain in dB x 10
             
             # Data acquisition parameters
             self.channel_number = 4
@@ -168,9 +168,10 @@ class ReceiverRTLSDR():
 
             byte_data_np = np.frombuffer(byte_array_read, dtype='uint8', count=read_size)
 
-            self.iq_samples.real = byte_data_np[0:self.channel_number*self.block_size:2].reshape(self.channel_number, self.block_size//2)
-            self.iq_samples.imag = byte_data_np[1:self.channel_number*self.block_size:2].reshape(self.channel_number ,self.block_size//2)
+            #np.save("byte_array_np_uint8", byte_data_np)
 
+            self.iq_samples.real = byte_data_np[0:self.channel_number*self.block_size:2].reshape(self.channel_number, self.block_size//2)
+            self.iq_samples.imag = byte_data_np[1:self.channel_number*self.block_size:2].reshape(self.channel_number, self.block_size//2)
 
      #       for m in range(self.channel_number):    
       #          real = byte_data_np[m*self.block_size:(m+1)*self.block_size:2]
@@ -189,16 +190,15 @@ class ReceiverRTLSDR():
                       #print("[ WARNING ] Overdrive at ch: %d"%m)                
                       #print("imag max: ",np.max(self.iq_samples[m, :].real))
                       #print("imag min: ",np.min(self.iq_samples[m, :].real))
-            self.socket.send(self.iq_samples.tobytes())
 
             self.iq_samples /= (255 / 2)
-            self.iq_samples -= (1 + 1j) 
-            
-                      
-            
+            self.iq_samples -= (1 + 1j)
+            #np.save("iq_samples_complex64", self.iq_samples)
+            self.socket.send(self.iq_samples[0, :].tobytes())
+
+
             #np.save("hydra_raw.npy",self.iq_samples)
             self.iq_preprocessing()
-            self.socket.send(self.iq_samples.tobytes())
             #np.save("hydra_preprocessed.npy", self.iq_samples)
             #print("[ DONE] IQ sample read ready")
             
