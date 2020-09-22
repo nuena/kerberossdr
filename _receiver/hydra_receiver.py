@@ -79,10 +79,10 @@ class ReceiverRTLSDR():
             self.sync_fifo_descriptor = open(self.sync_fifo_name, 'w+b', buffering=0)
             self.rec_control_fifo_descriptor = open(self.rec_control_fifo_name, 'w+b', buffering=0)
             
-            self.receiver_gain = 402 # Gain in dB x 10
-            self.receiver_gain_2 = 402 # Gain in dB x 10
-            self.receiver_gain_3 = 402 # Gain in dB x 10
-            self.receiver_gain_4 = 402 # Gain in dB x 10
+            self.receiver_gain = 0 # Gain in dB x 10
+            self.receiver_gain_2 = 0 # Gain in dB x 10
+            self.receiver_gain_3 = 0 # Gain in dB x 10
+            self.receiver_gain_4 = 0 # Gain in dB x 10
             
             # Data acquisition parameters
             self.channel_number = 4
@@ -102,8 +102,11 @@ class ReceiverRTLSDR():
             # UDP data dump:
             self.zmqcont = zmq.Context()
 
-            self.socket = self.zmqcont.socket(zmq.PUB)
-            self.socket.bind("tcp://*:9876")
+            self.socket_complex = self.zmqcont.socket(zmq.PUB)
+            self.socket_complex.bind("tcp://*:9876")
+
+            self.socket_uint = self.zmqcont.socket(zmq.PUB)
+            self.socket_uint.bind("tcp://*:9900")
 
 
 
@@ -173,6 +176,9 @@ class ReceiverRTLSDR():
             self.iq_samples.real = byte_data_np[0:self.channel_number*self.block_size:2].reshape(self.channel_number, self.block_size//2)
             self.iq_samples.imag = byte_data_np[1:self.channel_number*self.block_size:2].reshape(self.channel_number, self.block_size//2)
 
+
+
+
      #       for m in range(self.channel_number):    
       #          real = byte_data_np[m*self.block_size:(m+1)*self.block_size:2]
        #         imag = byte_data_np[m*self.block_size+1:(m+1)*self.block_size:2]
@@ -194,11 +200,13 @@ class ReceiverRTLSDR():
             self.iq_samples /= (255 / 2)
             self.iq_samples -= (1 + 1j)
             #np.save("iq_samples_complex64", self.iq_samples)
-            self.socket.send(self.iq_samples[0, :].tobytes())
-
 
             #np.save("hydra_raw.npy",self.iq_samples)
             self.iq_preprocessing()
+            self.socket_complex.send(self.iq_samples[0, :].tobytes())
+            self.socket_uint.send(self.complex_to_uint(self.iq_samples[0, :]))
+
+
             #np.save("hydra_preprocessed.npy", self.iq_samples)
             #print("[ DONE] IQ sample read ready")
             
@@ -236,10 +244,28 @@ class ReceiverRTLSDR():
         time.sleep(1)
         self.gc_fifo_descriptor.close()
         self.sync_fifo_descriptor.close()
-        self.socket.close()
+        self.socket_complex.close()
         self.zmqcont.destroy()
         print("[ INFO ] Python rec: FIFOs are closed")
 
+
+    def complex_to_uint(self, complex_in):
+        """
+        Converts an array of complex numpy numbers into an interleaved array of uint8.
+        The complex input array is expected to be in the range [-1, 1], the output [0, 255]
+        """
+        # first change the value range:
+        complex_in = (complex_in + 1 + 1j) * 255/2
+
+        real = np.uint8(complex_in.real)
+        imag = np.uint8(complex_in.imag)
+
+        # interleave:
+        interleaved = np.empty((real.size + real.size,), dtype=real.dtype)
+        interleaved[0::2] = real
+        interleaved[1::2] = imag
+
+        return interleaved
         
         
 

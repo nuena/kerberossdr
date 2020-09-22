@@ -25,6 +25,8 @@ import time
 # Math support
 import numpy as np
 
+import zmq
+
 # Signal processing support
 from scipy import fft,ifft
 from scipy import signal
@@ -146,6 +148,10 @@ class SignalProcessor(QtCore.QThread):
         self.timed_sync = False
         self.noise_checked = False
         self.resync_time = -1
+        self.zmqcont = zmq.Context()
+
+        self.zmqsock = self.zmqcont.socket(zmq.PUB)
+        self.zmqsock.bind("tcp://*:9950")
 
     def run(self):
         # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -350,7 +356,8 @@ class SignalProcessor(QtCore.QThread):
             if self.en_DOA_MUSIC:
                 self.DOA_MUSIC_res = de.DOA_MUSIC(R, scanning_vectors, signal_dimension = 1)
 
-        #print(self.DOA_MUSIC_res)
+        print(self.DOA_MUSIC_res)
+        #self.zmqsock.send_string("DOA: %f" % max(self.DOA_MUSIC_res))
 
 
     def PR_processing(self):
