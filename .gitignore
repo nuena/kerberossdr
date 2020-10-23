@@ -13,3 +13,8 @@ sim
 sync
 __pycache__
 *.save
+
+*.orig
+*~
+*.log
+*.dat
