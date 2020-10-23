@@ -106,7 +106,10 @@ class ReceiverRTLSDR():
             self.socket_complex.bind("tcp://*:9876")
 
             self.socket_uint = self.zmqcont.socket(zmq.PUB)
-            self.socket_uint.bind("tcp://*:9900")
+            self.socket_uint.bind("tcp://*:9877")
+
+            self.socket_filtered = self.zmqcont.socket(zmq.SUB)
+            self.socket_filtered.connect("tcp://localhost:9900")
 
 
 
@@ -176,42 +179,51 @@ class ReceiverRTLSDR():
             self.iq_samples.real = byte_data_np[0:self.channel_number*self.block_size:2].reshape(self.channel_number, self.block_size//2)
             self.iq_samples.imag = byte_data_np[1:self.channel_number*self.block_size:2].reshape(self.channel_number, self.block_size//2)
 
-
-
-
-     #       for m in range(self.channel_number):    
-      #          real = byte_data_np[m*self.block_size:(m+1)*self.block_size:2]
-       #         imag = byte_data_np[m*self.block_size+1:(m+1)*self.block_size:2]
-                #real = np.array(byte_data[::2], dtype=np.uint8)
-                #imag = np.array(byte_data[1::2], dtype=np.uint8)
-        #        self.iq_samples[m,:].real, self.iq_samples[m,:].imag = real, imag
-                # Check overdrive
-                #if (np.greater(self.iq_samples[m, :].real,int(127+128*overdrive_margin)).any()) or  (np.less(self.iq_samples[m, :].real, int(127-128*overdrive_margin)).any()):                      
-                #      self.overdrive_detect_flag = True
-                      #print("[ WARNING ] Overdrive at ch: %d"%m)   
-                      #print("real max: ",np.max(self.iq_samples[m, :].real))
-                      #print("real min: ",np.min(self.iq_samples[m, :].real))
-                #if (np.greater(self.iq_samples[m, :].imag, int(127+128*overdrive_margin)).any()) or (np.less(self.iq_samples[m, :].imag, int(127-128*overdrive_margin)).any()):                      
-                #      self.overdrive_detect_flag = True
-                      #print("[ WARNING ] Overdrive at ch: %d"%m)                
-                      #print("imag max: ",np.max(self.iq_samples[m, :].real))
-                      #print("imag min: ",np.min(self.iq_samples[m, :].real))
-
             self.iq_samples /= (255 / 2)
             self.iq_samples -= (1 + 1j)
             #np.save("iq_samples_complex64", self.iq_samples)
 
             #np.save("hydra_raw.npy",self.iq_samples)
             self.iq_preprocessing()
-            self.socket_complex.send(self.iq_samples[0, :].tobytes())
-            self.socket_uint.send(self.complex_to_uint(self.iq_samples[0, :]))
+
+            # Emit the concatenated samples A[1-N] B[1-N] C[1-N] D[1-N] over both ZMQ endpoints.
+            #self.socket_complex.send(self.iq_samples.tobytes())
+            #self.socket_uint.send(self.complex_to_uint(self.iq_samples.flatten()))
+
+            # Emit the interleaved samples A1 B1 C1 D1 A2 B2 ... over both ZMQ endpoints
+            self.socket_complex.send(self.iq_samples.transpose().tobytes())
+            self.socket_uint.send(self.complex_to_uint(self.iq_samples.transpose().flatten()))
+
+            # Emit the first Kerberos signal channel over both ZMQ endpoints.
+            #self.socket_complex.send(self.iq_samples[1, :].tobytes())
+            #self.socket_uint.send(self.complex_to_uint(self.iq_samples[1, :]))
+
+            # The following is intended together with an external squelch. However, currently this does not work because
+            # the ZMQ read is either blocking (which doesn't work) or returns without data (which doesn't work either).
+            # Currently disabled since it does not work.
+            return
+            try:
+                print("In Try", file=sys.stderr)
+                ext_filtered = self.socket_filtered.recv(flags=zmq.NOBLOCK)
+
+                byte_data_np = np.frombuffer(ext_filtered, dtype='uint8')
+
+                # np.save("byte_array_np_uint8", byte_data_np)
+
+                self.iq_samples.real = byte_data_np[0:self.channel_number * self.block_size:2].reshape(self.channel_number,
+                                                                                                       -1)
+                self.iq_samples.imag = byte_data_np[1:self.channel_number * self.block_size:2].reshape(self.channel_number,
+                                                                                                       -1)
+
+                self.iq_samples /= (255 / 2)
+                self.iq_samples -= (1 + 1j)
+            except Exception as err:
+                print(err, file=sys.stderr)
+                self.iq_samples.fill(0+0j)
+                
 
 
-            #np.save("hydra_preprocessed.npy", self.iq_samples)
-            #print("[ DONE] IQ sample read ready")
-            
-            
-            #return iq_samples    
+
        
     def iq_preprocessing(self):
                 
@@ -251,7 +263,7 @@ class ReceiverRTLSDR():
 
     def complex_to_uint(self, complex_in):
         """
-        Converts an array of complex numpy numbers into an interleaved array of uint8.
+        Converts a 1D-array of complex numpy numbers into an interleaved array of uint8.
         The complex input array is expected to be in the range [-1, 1], the output [0, 255]
         """
         # first change the value range:
@@ -266,7 +278,7 @@ class ReceiverRTLSDR():
         interleaved[1::2] = imag
 
         return interleaved
-        
+
         
 
 
