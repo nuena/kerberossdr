@@ -100,17 +100,23 @@ class ReceiverRTLSDR():
             self.decimation_ratio = 1
 
             # UDP data dump:
-            self.zmqcont = zmq.Context()
+            try:
+                self.zmqcont = zmq.Context()
 
-            self.socket_complex = self.zmqcont.socket(zmq.PUB)
-            self.socket_complex.bind("tcp://*:9876")
+                self.socket_complex = self.zmqcont.socket(zmq.PUB)
+                self.socket_complex.bind("tcp://*:9876")
 
-            self.socket_uint = self.zmqcont.socket(zmq.PUB)
-            self.socket_uint.bind("tcp://*:9877")
+                self.socket_uint = self.zmqcont.socket(zmq.PUB)
+                self.socket_uint.bind("tcp://*:9877")
 
-            self.socket_filtered = self.zmqcont.socket(zmq.SUB)
-            self.socket_filtered.connect("tcp://localhost:9900")
+                self.socket_filtered = self.zmqcont.socket(zmq.SUB)
+                self.socket_filtered.connect("tcp://localhost:9900")
 
+                self.debug_file = open("debug.bin", "wb")
+            except Exception as e:
+                print("ZMQ Bind failed", file=sys.stderr)
+                print(e.__str__(), file=sys.stderr)
+                exit(100)
 
 
     def set_sample_offsets(self, sample_offsets):
@@ -193,6 +199,7 @@ class ReceiverRTLSDR():
             # Emit the interleaved samples A1 B1 C1 D1 A2 B2 ... over both ZMQ endpoints
             self.socket_complex.send(self.iq_samples.transpose().tobytes())
             self.socket_uint.send(self.complex_to_uint(self.iq_samples.transpose().flatten()))
+            #self.debug_file.write(bytes(self.complex_to_uint(self.iq_samples.transpose().flatten())))
 
             # Emit the first Kerberos signal channel over both ZMQ endpoints.
             #self.socket_complex.send(self.iq_samples[1, :].tobytes())
@@ -274,6 +281,7 @@ class ReceiverRTLSDR():
 
         # interleave:
         interleaved = np.empty((real.size + real.size,), dtype=real.dtype)
+
         interleaved[0::2] = real
         interleaved[1::2] = imag
 

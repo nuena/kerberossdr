@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BUFF_SIZE=256 #Must be a power of 2. Normal values are 128, 256. 512 is possible on a fast PC.
+BUFF_SIZE=128 #Must be a power of 2. Normal values are 128, 256. 512 is possible on a fast PC.
 IPADDR="0.0.0.0"
 IPPORT="8081"
 
